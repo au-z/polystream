@@ -1,0 +1,21 @@
+{
+  "name": "polystream",
+  "version": "1.0.0",
+  "description": "Streams meet WebGL",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lite": "lite-server",
+    "start": "npm run lite"
+  },
+  "keywords": [
+    "stream",
+    "observable",
+    "webgl"
+  ],
+  "author": "Austin Martin",
+  "license": "ISC",
+  "devDependencies": {
+    "lite-server": "^2.2.0"
+  }
+}
