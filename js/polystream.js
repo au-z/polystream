@@ -2,27 +2,43 @@
 
 var polystream = (function () {
 	var instance;
-	var glUtils;
+	var GL;
 
-	var gl;
 	var canvas;
 
 	var mvMatrix = mat4.create();
 	var pMatrix = mat4.create();
 
+	var gl;
 	var shaderProgram;
 
 	function polystream(id, options) {
 		canvas = document.getElementById(id);
-		glUtils = new WebglUtils();
-		gl = glUtils.initGL(canvas);
-		glUtils.initShaders(options.fs, options.vs);
-		shaderProgram = glUtils.shaderProgram;
-		_createBuffers();
-		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		GL = new WebglUtils();
+		GL.initGL(canvas, options.vs, options.fs);
+		gl = GL.gl;
+		shaderProgram = GL.shaderProgram;
+		console.log(gl);
+		console.log(shaderProgram);
+		// addToShaders();
+
+		// _createBuffers();
+		gl.clearColor(0.9, 0.9, 0.9, 1.0);
 		gl.enable(gl.DEPTH_TEST);
 
-		_drawScene();
+		// _drawScene();
+	}
+
+	function addToShaders(){
+		// console.log(gl);
+		shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+		gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+		shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
+		gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
+
+		shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+		shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
 	}
 
 	function _createBuffers(){

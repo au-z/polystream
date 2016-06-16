@@ -4,7 +4,7 @@ var WebglUtils = (function () {
 	var gl = null;
 	var shaderProgram;
 
-	function initGL(canvas){
+	function initGL(canvas, vsUrl, fsUrl){
 		try {
 			gl = canvas.getContext('webgl');
 			gl.viewportWidth = canvas.width;
@@ -12,17 +12,43 @@ var WebglUtils = (function () {
 		} catch (e) {
 			if (!gl) alert('Could not init WebGL. Sorry. :(');
 		}
-		return gl;
+		initShaders(vsUrl, fsUrl, function(program){
+			shaderProgram = program;
+		});
 	}
 
-	function initShaders(fsUrl, vsUrl){
-		var loadFragShader = _requestShader(fsUrl, 'fragment').then(_loadShader, _handleError);
-		var loadVertShader = _requestShader(vsUrl, 'vertex').then(_loadShader, _handleError);
-
-		Promise.all([loadFragShader, loadVertShader]).then( _createShaderProgram, _handleError);
+	function initShaders(vsUrl, fsUrl, callback){
+		var loadVertShader = loadShader(vsUrl, 'vertex').then(compileShader).catch(handleError);
+		var loadFragShader = loadShader(fsUrl, 'fragment').then(compileShader).catch(handleError);
+		Promise.all([loadVertShader, loadFragShader])
+			.then(createProgram)
+			.then(callback)
+			.catch(handleError);
 	}
 
-	function _requestShader(url, type){
+	function createProgram(shaders){
+		return new Promise(function(resolve, reject){
+			if(shaders.length !== 2){ reject(Error(shaders.length + ' shader(s) loaded. glUtils supports only two shaders.'))}
+			var vertShader, fragShader;
+			for(var i = 0; i < shaders.length; i++){
+				if(shaders[i].type === 'vertex'){ vertShader = shaders[i].shader; }
+				else if(shaders[i].type === 'fragment'){ fragShader = shaders[i].shader; }
+			}
+
+			shaderProgram = gl.createProgram();
+			gl.attachShader(shaderProgram, vertShader);
+			gl.attachShader(shaderProgram, fragShader);
+			gl.linkProgram(shaderProgram);
+
+			if(!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)){
+				reject(Error("Could not init shaders"));
+			}
+
+			resolve(shaderProgram);
+		});
+	}
+
+	function loadShader(url, type){
 		return new Promise(function(resolve, reject){
 			var http = new XMLHttpRequest();
 			http.responseType = "text";
@@ -46,7 +72,7 @@ var WebglUtils = (function () {
 		});
 	}
 
-	function _loadShader(shaderData){
+	function compileShader(shaderData){
 		return new Promise(function (resolve, reject){
 			var shaderScript = shaderData.shader;
 			var shaderType = shaderData.type;
@@ -76,43 +102,15 @@ var WebglUtils = (function () {
 		});
 	}
 
-	function _createShaderProgram(shaders){
-		if(shaders.length !== 2){ throw Error(shaders.length + ' shader(s) loaded. glUtils supports only two shaders.')}
-		
-		var vertShader, fragShader;
-		for(var i = 0; i < shaders.length; i++){
-			if(shaders[i].type === 'fragment'){ fragShader = shaders[i].shader; }
-			else if(shaders[i].type === 'vertex'){ vertShader = shaders[i].shader; }
-		}
-
-		shaderProgram = gl.createProgram();
-		gl.attachShader(shaderProgram, vertShader);
-		gl.attachShader(shaderProgram, fragShader);
-		gl.linkProgram(shaderProgram);
-
-		if(!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)){
-			alert("Could not init shaders");
-		}
-
-		gl.useProgram(shaderProgram);
-
-		shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-		gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-
-		shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
-		gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
-
-		shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-		shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-	}
-
-	function _handleError(e){
+	function handleError(e){
 		console.log(e);
 	}
 
 	return {
-		initGL: initGL,
-		initShaders: initShaders,
-		shaderProgram: shaderProgram
+		//public properties
+		gl: gl,
+		shaderProgram: shaderProgram,
+		//public methods
+		initGL: initGL
 	}
 });
