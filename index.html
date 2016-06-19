@@ -7,10 +7,12 @@
     <canvas id="polystream" style="border: none;" width="500" height="500"></canvas>
     <script src="js/gl-matrix.min.js"></script>
     <script src="js/glob.js"></script>
-    <script src="js/glUtils.js"></script>
+    <script src="js/glob-factory.js"></script>
+    <script src="js/gl-utils.js"></script>
     <script src="js/polystream.js"></script>
     <script>
-        var GL = new WebglUtils();
+        var GL = new GLUtils();
+        var globFactory = new GlobFactory();
     </script>
 </body>
 </html>

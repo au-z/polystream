@@ -1,17 +1,18 @@
-function Glob(name, pos, verts, color, drawOptions){
+function Glob(name, pos, verts, colors, drawOptions){
 	this.name = name;
 	this.pos = pos || [0, 0, 0];
 	this.rotation = 0;
+
 	this.verts = verts || { data: [], stride: 0, numStrides: 0};
-	this.color = color || { data: [], stride: 0, numStrides: 0};
+	this.colors = colors || { data: [], stride: 0, numStrides: 0};
 	this.buffers = {};
 
 	var o = drawOptions || {};
-	if(!o.drawMode) throw new Error('A webGL draw mode must be passed when creating the drawable Glob \'' + this.name + '\'');
-	this.drawMode = o.drawMode;
+	if(!o.mode) throw new Error('A webGL draw mode must be passed when creating the drawable Glob \'' + this.name + '\'');
+	this.drawMode = o.mode;
 	if(o.gl){
 		this.createBuffer('positionBuffer', o.gl, this.verts);
-		this.createBuffer('colorBuffer', o.gl, this.color);
+		this.createBuffer('colorBuffer', o.gl, this.colors);
 	}
 }
 
@@ -36,6 +37,8 @@ Glob.prototype = {
 	},
 
 	draw: function(gl, mvMatrix, positionAttribute, colorAttribute, fnSetMatrixUniforms){
+		mat4.identity(mvMatrix);
+		mat4.translate(mvMatrix, this.pos);
 		GL.pushMatrix(mvMatrix);
 		if(this.animations !== undefined){
 			for(var i in this.animations){

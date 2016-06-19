@@ -2,7 +2,7 @@ var polystream = (function () {
 	var instance;
 	var gl, sp;
 	var canvas;
-	var globs;
+	var globs = {};
 	var mvMatrix, pMatrix;
 
 	var lastTime = 0;
@@ -12,19 +12,17 @@ var polystream = (function () {
 		mvMatrix = mat4.create();
 		pMatrix = mat4.create();
 
-		globs = {};
-
 		GL.initGL(canvas, [0.24, 0.24, 0.24, 1.0], options.vs, options.fs)
 		.then(function(glUtils){
 			gl = glUtils.gl;
 			sp = glUtils.shaderProgram;
 			linkShaders();
-			
-			createGlobs();
-			registerAnimations();
-			printGlobs();
-			
-			tick();
+			createGlobs().then(function(glObjects){
+				globs = glObjects;
+				registerAnimations();
+				// printGlobs();
+				tick();
+			});
 		})
 		.catch(function(e){ console.error(e); })
 	}
@@ -42,31 +40,22 @@ var polystream = (function () {
 	}
 
 	function createGlobs(){
-		var triangle = new Glob('triangle', [ -1.0, 0.0, -7.0],
-			{ data: [ 0.0,  1.0,  0.0,
-								-1.0, -1.0,  0.0,
-								1.0, -1.0,  0.0 ],
-				stride: 3, numStrides: 3},
-			{ data: [ 1.0, 0.0, 0.0, 1.0,
-								0.0, 1.0, 0.0, 1.0,
-								0.0, 0.0, 1.0, 1.0 ],
-				stride: 4, numStrides: 3 },
-			{ gl: gl, drawMode: gl.TRIANGLES });
-		var square = new Glob('square', [1.0, 0.0, -7.0],
-			{ data: [ 1.0,  1.0,  0.0,
-								-1.0,  1.0,  0.0,
-								1.0, -1.0,  0.0,
-								-1.0, -1.0,  0.0 ],
-				stride: 3, numStrides: 4 },
-			{ data: [ 1.0, 0.0, 0.0, 1.0,
-								0.0, 1.0, 0.0, 1.0,
-								0.0, 0.0, 1.0, 1.0,
-								1.0, 1.0, 1.0, 1.0 ],
-				stride: 4, numStrides: 4 },
-			{ gl: gl, drawMode: gl.TRIANGLE_STRIP });
-
-		globs[triangle.name] = triangle;
-		globs[square.name] = square;
+		return new Promise(function(resolve, reject){
+			globFactory.createGlobs({
+				triangle: {
+					name: 'triangle',
+					pos: [-1, 0, -7.0],
+					url: 'glob/triangle.json',
+					drawOptions: { gl: gl, mode: gl.TRIANGLES }
+				},
+				square: {
+					name: 'square',
+					pos: [1, 0, -7.0],					
+					url: 'glob/square.json',
+					drawOptions: { gl: gl, mode: gl.TRIANGLE_STRIP }
+				}
+			}).then(function(globs){ resolve(globs); }, function(error){ reject(error); });
+		});
 	}
 
 	function registerAnimations(){
@@ -96,15 +85,9 @@ var polystream = (function () {
 		function drawScene(){
 			GL.drawGL(pMatrix);
 			for(var i in globs){
-				drawGlob(globs[i]);
+				mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
 			}
 		}
-
-			function drawGlob(glob){
-				mat4.identity(mvMatrix);				
-				mat4.translate(mvMatrix, glob.pos);
-				mvMatrix = glob.draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
-			}
 
 		function animate(){
 			var timeNow = new Date().getTime();

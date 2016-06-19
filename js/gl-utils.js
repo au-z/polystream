@@ -1,4 +1,4 @@
-var WebglUtils = (function () {
+var GLUtils = (function () {
 	var gl = null;
 	var clearColor = [0.2, 0.2, 0.2, 1.0];
 	var matrixStack = [];
@@ -59,10 +59,10 @@ var WebglUtils = (function () {
 			return new Promise(function(resolve, reject){
 				var loadVertShader = loadShaderAsync(vsUrl, 'vertex');
 				var loadFragShader = loadShaderAsync(fsUrl, 'fragment');
-				Promise.all([loadVertShader, loadFragShader]).then(createProgram)
-					.then(
-						function(shader){ resolve(shader); }, 
-						function(error){ reject(error); });
+				Promise.all([loadVertShader, loadFragShader]).then(createProgram).then(
+					function(shader){ resolve(shader); }, 
+					function(error){ reject(error); }
+				);
 			});
 		}
 
