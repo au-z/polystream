@@ -5,8 +5,12 @@
 </head>
 <body onload="polystream.start('polystream', { fs: 'shaders/fs.frag', vs: 'shaders/vs.vert' });">
     <canvas id="polystream" style="border: none;" width="500" height="500"></canvas>
-    <script type="text/javascript" src="js/glMatrix-0.9.5.min.js"></script>
+    <script src="js/gl-matrix.min.js"></script>
+    <script src="js/glob.js"></script>
     <script src="js/glUtils.js"></script>
     <script src="js/polystream.js"></script>
+    <script>
+        var GL = new WebglUtils();
+    </script>
 </body>
 </html>

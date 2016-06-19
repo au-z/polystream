@@ -1,82 +1,116 @@
-'use-strict';
-
 var WebglUtils = (function () {
 	var gl = null;
-	var shaderProgram;
+	var clearColor = [0.2, 0.2, 0.2, 1.0];
 
-	function initGL(canvas, vsUrl, fsUrl){
+	function initGL(canvas, clearColor, vsUrl, fsUrl){
 		try {
 			gl = canvas.getContext('webgl');
 			gl.viewportWidth = canvas.width;
 			gl.viewportHeight = canvas.height;
+			clearColor = clearColor;
 		} catch (e) {
 			if (!gl) alert('Could not init WebGL. Sorry. :(');
 		}
-		initShaders(vsUrl, fsUrl, function(program){
-			shaderProgram = program;
+
+		return new Promise(function(resolve, reject){
+			initShaders(vsUrl, fsUrl).then(
+				function(program){ resolve({ gl: gl, shaderProgram: program }); }, 
+				function(error){ reject(error); });
 		});
 	}
 
-	function initShaders(vsUrl, fsUrl, callback){
-		var loadVertShader = loadShader(vsUrl, 'vertex').then(compileShader).catch(handleError);
-		var loadFragShader = loadShader(fsUrl, 'fragment').then(compileShader).catch(handleError);
-		Promise.all([loadVertShader, loadFragShader])
-			.then(createProgram)
-			.then(callback)
-			.catch(handleError);
+	function linkShaders(program, props){
+		if(props.attributes.length > 0){
+			program.attributes = {};
+			props.attributes.map(attrib => attribToProgram(attrib, program));
+		}
+		if(props.uniforms.length > 0){
+			program.uniforms = {};
+			props.uniforms.map(uniform => uniformToProgram(uniform, program));
+		}
+		console.log(program);
 	}
 
-	function createProgram(shaders){
-		return new Promise(function(resolve, reject){
-			if(shaders.length !== 2){ reject(Error(shaders.length + ' shader(s) loaded. glUtils supports only two shaders.'))}
-			var vertShader, fragShader;
-			for(var i = 0; i < shaders.length; i++){
-				if(shaders[i].type === 'vertex'){ vertShader = shaders[i].shader; }
-				else if(shaders[i].type === 'fragment'){ fragShader = shaders[i].shader; }
+		function attribToProgram(attrib, program){
+			program.attributes[attrib] = gl.getAttribLocation(program, attrib);
+			if(program.attributes[attrib] === null){
+				throw new Error('Could not link to shader attribute ' + attrib + + '. Check your shaders!');
 			}
+			gl.enableVertexAttribArray(program.attributes[attrib]);
+		}
 
-			shaderProgram = gl.createProgram();
-			gl.attachShader(shaderProgram, vertShader);
-			gl.attachShader(shaderProgram, fragShader);
-			gl.linkProgram(shaderProgram);
-
-			if(!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)){
-				reject(Error("Could not init shaders"));
+		function uniformToProgram(uniform, program){
+			program.uniforms[uniform] = gl.getUniformLocation(program, uniform);
+			if(program.uniforms[uniform] === null){
+				throw new Error('Could not link to shader uniform ' + uniform + '. Check your shaders!');
 			}
+		}
 
-			resolve(shaderProgram);
-		});
+	function drawGL(pMatrix){
+		gl.clearColor(0.24, 0.24, 0.24, 1.0);
+		gl.enable(gl.DEPTH_TEST);
+		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		//set up projection matrix
+		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 	}
 
-	function loadShader(url, type){
-		return new Promise(function(resolve, reject){
-			var http = new XMLHttpRequest();
-			http.responseType = "text";
-			http.open('GET', url);
-			http.onload = function(){
-				if(http.status === 200){
-					resolve({
-						shader: http.response,
-						type: type
-					});
-				}else{
-					reject(Error(http.statusText));
+		function initShaders(vsUrl, fsUrl){
+			return new Promise(function(resolve, reject){
+				var loadVertShader = loadShaderAsync(vsUrl, 'vertex');
+				var loadFragShader = loadShaderAsync(fsUrl, 'fragment');
+				Promise.all([loadVertShader, loadFragShader]).then(createProgram)
+					.then(
+						function(shader){ resolve(shader); }, 
+						function(error){ reject(error); });
+			});
+		}
+
+		function createProgram(shaders){
+			return new Promise(function(resolve, reject){
+				if(shaders.length !== 2){ reject(Error(shaders.length + ' shader(s) loaded. glUtils supports only two shaders.'))}
+				var vertShader, fragShader;
+				for(var i = 0; i < shaders.length; i++){
+					if(shaders[i].type === 'vertex'){ vertShader = shaders[i]; }
+					else if(shaders[i].type === 'fragment'){ fragShader = shaders[i]; }
 				}
-			};
+				var program = gl.createProgram();
+				gl.attachShader(program, vertShader);
+				gl.attachShader(program, fragShader);
+				
+				gl.linkProgram(program);
 
-			http.onerror = function(){
-				reject(Error('Network error.'));
-			};
+				if(!gl.getProgramParameter(program, gl.LINK_STATUS)){
+					reject(Error("Could not init shaders"));
+				}
+				gl.useProgram(program);
+				resolve(program);
+			});
+		}
 
-			http.send();
-		});
-	}
+		function loadShaderAsync(url, type){
+			return new Promise(function(resolve, reject){
+				var http = new XMLHttpRequest();
+				http.responseType = "text";
+				http.open('GET', url);
+				http.onload = function(){
+					if(http.status === 200){
+						var shader = compileShader(http.response, type);
+						shader.type = type;
+						resolve(shader);
+					}else{
+						reject(Error(http.statusText));
+					}
+				};
+				http.onerror = function(){
+					reject(Error('Network error.'));
+				};
+				http.send();
+			});
+		}
 
-	function compileShader(shaderData){
-		return new Promise(function (resolve, reject){
-			var shaderScript = shaderData.shader;
-			var shaderType = shaderData.type;
-			if(!shaderScript){ reject(Error('No shader script found in shader response.')) }
+		function compileShader(shaderScript, shaderType){
+			if(!shaderScript){ throw new Error('No shader script found in shader response.'); }
 
 			var shader;
 			if(shaderType == 'fragment'){
@@ -84,7 +118,7 @@ var WebglUtils = (function () {
 			}else if(shaderType == 'vertex'){
 				shader = gl.createShader(gl.VERTEX_SHADER);
 			}else{
-				reject(Error('Shader type not recognized'));
+				throw new Error('Shader type not recognized');
 			}
 
 			gl.shaderSource(shader, shaderScript);
@@ -92,25 +126,13 @@ var WebglUtils = (function () {
 
 			if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)){
 				alert(gl.getShaderInfoLog(shader));
-				reject(Error(gl.getShaderInfoLog(shader)));
 			}
-
-			resolve({
-				shader: shader,
-				type: shaderType
-			});
-		});
-	}
-
-	function handleError(e){
-		console.log(e);
-	}
+			return shader;
+		}
 
 	return {
-		//public properties
-		gl: gl,
-		shaderProgram: shaderProgram,
-		//public methods
-		initGL: initGL
+		initGL: initGL,
+		linkShaders: linkShaders,
+		drawGL: drawGL
 	}
 });
