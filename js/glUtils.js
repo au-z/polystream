@@ -1,6 +1,7 @@
 var WebglUtils = (function () {
 	var gl = null;
 	var clearColor = [0.2, 0.2, 0.2, 1.0];
+	var matrixStack = [];
 
 	function initGL(canvas, clearColor, vsUrl, fsUrl){
 		try {
@@ -28,7 +29,6 @@ var WebglUtils = (function () {
 			program.uniforms = {};
 			props.uniforms.map(uniform => uniformToProgram(uniform, program));
 		}
-		console.log(program);
 	}
 
 		function attribToProgram(attrib, program){
@@ -130,9 +130,27 @@ var WebglUtils = (function () {
 			return shader;
 		}
 
+	function pushMatrix(matrix){
+		var copy = mat4.create();
+		mat4.set(matrix, copy);
+		matrixStack.push(copy);
+	}
+
+	function popMatrix(){
+		if(matrixStack.length === 0) throw Error('Invalid popMatrix on a matrix of length 0!');
+		return matrixStack.pop();
+	}
+
+	function degToRad(deg){
+		return deg * Math.PI / 180;
+	}
+
 	return {
 		initGL: initGL,
 		linkShaders: linkShaders,
-		drawGL: drawGL
+		drawGL: drawGL,
+		pushMatrix: pushMatrix,
+		popMatrix: popMatrix,
+		degToRad: degToRad
 	}
 });

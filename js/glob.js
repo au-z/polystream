@@ -1,6 +1,7 @@
 function Glob(name, pos, verts, color, drawOptions){
 	this.name = name;
 	this.pos = pos || [0, 0, 0];
+	this.rotation = 0;
 	this.verts = verts || { data: [], stride: 0, numStrides: 0};
 	this.color = color || { data: [], stride: 0, numStrides: 0};
 	this.buffers = {};
@@ -19,6 +20,13 @@ Glob.prototype = {
 		console.log(this);
 	},
 
+	registerAnimation: function(name, animation, timeUpdate){
+		if(this.animations === undefined) this.animations = {};
+		if(this.timeUpdates === undefined) this.timeUpdates = {};
+		this.animations[name] = animation;
+		this.timeUpdates[name] = timeUpdate;
+	},
+
 	createBuffer: function(name, gl, bufferData){
 		this[name] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, this[name]);
@@ -27,14 +35,28 @@ Glob.prototype = {
 		this[name].numStrides = bufferData.numStrides;
 	},
 
-	draw: function(gl, drawMode, positionAttribute, colorAttribute){
+	draw: function(gl, mvMatrix, positionAttribute, colorAttribute, fnSetMatrixUniforms){
+		GL.pushMatrix(mvMatrix);
+		if(this.animations !== undefined){
+			for(var i in this.animations){
+				this.animations[i](this, mvMatrix);
+			}
+		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
 		gl.vertexAttribPointer(positionAttribute, this.positionBuffer.stride, gl.FLOAT, false, 0, 0);
 		if(colorAttribute){
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
 			gl.vertexAttribPointer(colorAttribute, this.colorBuffer.stride, gl.FLOAT, false, 0, 0);
 		}
-		gl.drawArrays(drawMode, 0, this.positionBuffer.numStrides);
+		fnSetMatrixUniforms();
+		gl.drawArrays(this.drawMode, 0, this.positionBuffer.numStrides);
+		return GL.popMatrix();
+	},
+
+	animate: function(animation, args){
+		if(!this.animations[animation]) throw new Error('Animation ' + animation + 'not found for Glob \'' + this.name + '\'');
+		this.animations[animation].apply(this, args);
 	}
+
 }
 
