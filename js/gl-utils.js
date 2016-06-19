@@ -47,7 +47,7 @@ var GLUtils = (function () {
 		}
 
 	function drawGL(pMatrix){
-		gl.clearColor(0.24, 0.24, 0.24, 1.0);
+		gl.clearColor(0.94, 0.94, 0.94, 1.0);
 		gl.enable(gl.DEPTH_TEST);
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -130,6 +130,19 @@ var GLUtils = (function () {
 			return shader;
 		}
 
+	function resize(){
+  	var realToCSSPixels = window.devicePixelRatio || 1;
+  	var displayWidth  = Math.floor(gl.canvas.clientWidth  * realToCSSPixels);
+  	var displayHeight = Math.floor(gl.canvas.clientHeight * realToCSSPixels);
+		
+ 		if (gl.canvas.width  != displayWidth || gl.canvas.height != displayHeight) {
+    	gl.canvas.width  = displayWidth;
+    	gl.canvas.height = displayHeight;
+    	gl.viewportWidth = gl.canvas.width;
+			gl.viewportHeight = gl.canvas.height;
+  	}
+	}
+
 	function pushMatrix(matrix){
 		var copy = mat4.create();
 		mat4.set(matrix, copy);
@@ -149,6 +162,7 @@ var GLUtils = (function () {
 		initGL: initGL,
 		linkShaders: linkShaders,
 		drawGL: drawGL,
+		resize: resize,
 		pushMatrix: pushMatrix,
 		popMatrix: popMatrix,
 		degToRad: degToRad

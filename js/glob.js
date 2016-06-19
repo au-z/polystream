@@ -3,10 +3,12 @@ function Glob(name, pos, verts, colors, drawOptions){
 	this.pos = pos || [0, 0, 0];
 	this.rotation = 0;
 
-	this.verts = verts || { data: [], stride: 0, numStrides: 0};
-	this.colors = colors || { data: [], stride: 0, numStrides: 0};
-	this.buffers = {};
-
+	this.verts = verts || { data: [], stride: 0 };
+	this.verts.numStrides = verts.data.length / verts.stride;
+	this.colors = colors || { data: [], stride: 0 };
+	if(colors.monochrome === true) this.generateColors(colors.color, this.verts.numStrides);
+	this.colors.numStrides = colors.data.length / colors.stride;
+	
 	var o = drawOptions || {};
 	if(!o.mode) throw new Error('A webGL draw mode must be passed when creating the drawable Glob \'' + this.name + '\'');
 	this.drawMode = o.mode;
@@ -19,6 +21,13 @@ function Glob(name, pos, verts, colors, drawOptions){
 Glob.prototype = {
 	log: function(){
 		console.log(this);
+	},
+
+	generateColors: function(color, vertCount){
+		for(var i = 0; i < vertCount; i++){
+			Array.prototype.push.apply(this.colors.data, color);
+		}
+		this.colors.stride = 4;
 	},
 
 	registerAnimation: function(name, animation, timeUpdate){

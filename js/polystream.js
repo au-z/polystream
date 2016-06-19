@@ -20,9 +20,9 @@ var polystream = (function () {
 			createGlobs().then(function(glObjects){
 				globs = glObjects;
 				registerAnimations();
-				// printGlobs();
+				printGlobs();
 				tick();
-			});
+			}, function(error){throw error; });
 		})
 		.catch(function(e){ console.error(e); })
 	}
@@ -41,37 +41,32 @@ var polystream = (function () {
 
 	function createGlobs(){
 		return new Promise(function(resolve, reject){
+			var grid = globFactory.simpleGrid({
+				name: 'grid',
+				pos: [-1,-1,-5],
+				drawOptions: { gl: gl, mode: gl.LINES }
+			});
 			globFactory.createGlobs({
-				triangle: {
-					name: 'triangle',
-					pos: [-1, 0, -7.0],
-					url: 'glob/triangle.json',
-					drawOptions: { gl: gl, mode: gl.TRIANGLES }
-				},
-				square: {
-					name: 'square',
-					pos: [1, 0, -7.0],					
-					url: 'glob/square.json',
-					drawOptions: { gl: gl, mode: gl.TRIANGLE_STRIP }
+				teapot: {
+					name: 'teapot',
+					pos: [0, 0, -70],
+					url: 'glob/teapot.json',
+					drawOptions: { gl: gl, mode: gl.LINE_LOOP }
 				}
-			}).then(function(globs){ resolve(globs); }, function(error){ reject(error); });
+			}).then(function(globs){
+				globs.grid = grid;
+				resolve(globs);
+			}, function(error){ reject(error); });
 		});
 	}
 
 	function registerAnimations(){
-		globs.triangle.registerAnimation('rotate',
+		globs.teapot.registerAnimation('rotate',
 			function(glob, mvMatrix){
 				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
 			},
 			function(glob, t){
-				glob.rotation = ((90 * t) / 1000.0) % 360;
-			});
-		globs.square.registerAnimation('rotate',
-			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [1, 1, 1]);
-			},
-			function(glob, t){
-				glob.rotation = ((90 * t) / 1000.0) % 360;
+				glob.rotation = ((20 * t) / 1000.0) % 360;
 			});
 	}
 
@@ -81,8 +76,8 @@ var polystream = (function () {
 		animate();
 	}
 
-
 		function drawScene(){
+			GL.resize();
 			GL.drawGL(pMatrix);
 			for(var i in globs){
 				mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
@@ -105,8 +100,6 @@ var polystream = (function () {
 	function printGlobs(){
 		for(var i in globs) globs[i].log();
 	}
-
-	
 
 	return {
 		start: function (id, options) {
