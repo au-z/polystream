@@ -16,7 +16,9 @@ var polystream = (function () {
 		.then(function(glUtils){
 			gl = glUtils.gl;
 			sp = glUtils.shaderProgram;
+			
 			linkShaders();
+			
 			createGlobs().then(function(glObjects){
 				globs = glObjects;
 				registerAnimations();
@@ -40,33 +42,42 @@ var polystream = (function () {
 	}
 
 	function createGlobs(){
+		var grid = globFactory.simpleGrid({
+			name: 'grid',
+			pos: [-3,-3,-15],
+			drawOptions: { gl: gl, mode: gl.LINES }
+		});
+
 		return new Promise(function(resolve, reject){
-			var grid = globFactory.simpleGrid({
-				name: 'grid',
-				pos: [-1,-1,-5],
-				drawOptions: { gl: gl, mode: gl.LINES }
-			});
 			globFactory.createGlobs({
-				teapot: {
-					name: 'teapot',
-					pos: [0, 0, -70],
+				streampot: {
+					name: 'streampot',
+					async: true,
+					pos: [0,0,-70],
 					url: 'glob/teapot.json',
-					drawOptions: { gl: gl, mode: gl.LINE_LOOP }
+					drawOptions: { gl: gl, mode: gl.LINE_STRIP, staticOrDynamicDraw: gl.DYNAMIC_DRAW }
 				}
-			}).then(function(globs){
-				globs.grid = grid;
-				resolve(globs);
+			}).then(function(result){
+				bufferDataStreams(result.streams);
+				result.globs.grid = grid;
+				resolve(result.globs);
 			}, function(error){ reject(error); });
 		});
 	}
 
+	function bufferDataStreams(streams){
+		streams.streampot.subscribe(function(vert){ 
+			globs.streampot.passToBuffer(vert, gl);
+		});
+	}
+
 	function registerAnimations(){
-		globs.teapot.registerAnimation('rotate',
+		globs.streampot.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, .5]);
 			},
 			function(glob, t){
-				glob.rotation = ((20 * t) / 1000.0) % 360;
+				glob.rotation = ((10 * t) / 1000.0) % 360;
 			});
 	}
 
@@ -80,7 +91,7 @@ var polystream = (function () {
 			GL.resize();
 			GL.drawGL(pMatrix);
 			for(var i in globs){
-				mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
+				if(globs[i] !== undefined) mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
 			}
 		}
 
@@ -98,7 +109,9 @@ var polystream = (function () {
 		}
 
 	function printGlobs(){
-		for(var i in globs) globs[i].log();
+		if(globs.length > 0){
+			for(var i in globs) globs[i].log();
+		}
 	}
 
 	return {

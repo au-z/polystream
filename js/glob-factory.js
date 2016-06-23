@@ -1,41 +1,55 @@
 var GlobFactory = (function () {
-	var colorR = [1.0, 0.0, 0.0, 1.0];
-	var colorG = [0.0, 1.0, 0.0, 1.0];
-	var colorB = [0.0, 0.0, 1.0, 1.0];
+	function createGlobStream(req){
+		return new Promise(function(resolve, reject){
+			var glob$ = Rx.Observable.fromPromise(httpGetGlob(req.name, req.pos, req.url, req.drawOptions));
+			glob$.subscribe( function(nameAndGlob){
+					var glob = nameAndGlob.glob;
+					var data = glob.stripVertData();
+					var data$ = Rx.Observable.interval(35)
+						.take(data.length)
+						.map(i => {return data[i]})
+						.bufferWithCount(3);
+					resolve({ name: nameAndGlob.name, glob: glob, data$: data$ });
+				},
+				function(error){reject(error);}
+			);
+		});
+	}
 
-	function createGlobs(globTemplate){
+	function createGlobs(req){
 		return new Promise(function (resolve, reject){
 			var loadGlobs = [];
-			for(var g in globTemplate){
-				loadGlobs.push(loadGlobAsync(
-					globTemplate[g].name,
-					globTemplate[g].pos,
-					globTemplate[g].url,
-					globTemplate[g].drawOptions));
+			var dataStreams = {};
+			for(var i in req){
+				if(req[i].async){
+					loadGlobs.push(createGlobStream(req[i]));
+				}else{
+					loadGlobs.push(httpGetGlob( req[i].name, req[i].pos, req[i].url, req[i].drawOptions));
+				}
 			}
-			Promise.all(loadGlobs).then(createGlobArray).then(
+			Promise.all(loadGlobs).then(createGlobCollection).then(
 				function(globs){ resolve(globs); },
 				function(error){ reject(error); }
 			);
 		});
 	}
 
-	function createGlobArray(globArray){
+	function createGlobCollection(globArray){
 		return new Promise(function(resolve, reject){
 			var globs = {};
-			globArray.map(el => addToGlobsObj(globs, el));
-			if(globArray.length !== Object.keys(globs).length){
-				reject(Error('Could not convert globArray to a globs object.'));
-			}
-			resolve(globs);
+			var streams = {};
+			globArray.map(el => addToGlobsAndStreams(globs, streams, el));
+			if(globArray.length !== Object.keys(globs).length) reject(Error('Could not convert globArray to a globs object.'));
+			resolve({globs: globs, streams: streams});
 		});
 	}
 
-		function addToGlobsObj(globs, element){
+		function addToGlobsAndStreams(globs, streams, element){
 			globs[element.name] = element.glob;
+			if(element.data$) streams[element.name] = element.data$;
 		}
 
-	function loadGlobAsync(name, pos, url, drawOptions){
+	function httpGetGlob(name, pos, url, drawOptions){
 		return new Promise(function(resolve, reject){
 			console.log('Loading new glob from: ' + url);
 			var http = new XMLHttpRequest();
@@ -67,71 +81,19 @@ var GlobFactory = (function () {
 		return glob;
 	}
 
-	function createGrid(globTemplate){
-		var verts = {}; verts.data = []; verts.stride = 3;
-		var colors = {}; colors.data = []; colors.stride = 4;
-		var color = [0.8, 0.8, 0.8, 1.0];
-		var gridDim = 12;
-		for(var x = (-1 * (gridDim / 2)); x < (gridDim / 2); x++){
-			verts.data.push(x, gridDim, 0.0);
-			verts.data.push(x, (gridDim * -1), 0.0);
-			if(x === 0){
-				Array.prototype.push.apply(colors.data, colorR);
-				Array.prototype.push.apply(colors.data, colorR);
-			}else{
-				Array.prototype.push.apply(colors.data, color);
-				Array.prototype.push.apply(colors.data, color);
-			}
-		}
-		for(var z = (-1 * (gridDim / 2)); z < (gridDim / 2); z++){
-			verts.data.push(gridDim, 0.0, z);
-			verts.data.push((gridDim * -1), 0.0, z);
-			if(z === 0){
-				Array.prototype.push.apply(colors.data, colorB);
-				Array.prototype.push.apply(colors.data, colorB);
-			}else{
-				Array.prototype.push.apply(colors.data, color);
-				Array.prototype.push.apply(colors.data, color);
-			}
-		}
-		for(var y = (-1 * (gridDim / 2)); y < (gridDim / 2); y++){
-			verts.data.push(0.0, y, gridDim);
-			verts.data.push(0.0, y, (gridDim * -1));
-			if(y === 0){
-				Array.prototype.push.apply(colors.data, colorG);
-				Array.prototype.push.apply(colors.data, colorG);
-			}else{
-				Array.prototype.push.apply(colors.data, color);
-				Array.prototype.push.apply(colors.data, color);
-			}
-		}
-		verts.numStrides = verts.data.length / verts.stride;
-		colors.numStrides = colors.data.length / colors.stride;
-		var grid = new Glob(globTemplate.name, globTemplate.pos, verts, colors, globTemplate.drawOptions);
-		return grid;
-	}
-
 	function simpleGrid(globTemplate){
 		var verts = {}; verts.data = []; verts.stride = 3;
 		var colors = {}; colors.data = []; colors.stride = 4;
-		var color = [0.2, 0.2, 0.2, 1.0];
+		var color = [0.3, 0.3, 0.3, 1.0];
 		var gridDim = 2;
 		//X
-		verts.data.push(0, gridDim, 0.0);
-		verts.data.push(0, 0.0, 0.0);
-		Array.prototype.push.apply(colors.data, color);
-		Array.prototype.push.apply(colors.data, color);
+		verts.data.push(0, gridDim, 0.0); verts.data.push(0, 0.0, 0.0);
 		//Z
-		verts.data.push(gridDim, 0.0, 0);
-		verts.data.push(0.0, 0.0, 0);
-		Array.prototype.push.apply(colors.data, color);
-		Array.prototype.push.apply(colors.data, color);
+		verts.data.push(gridDim, 0.0, 0); verts.data.push(0.0, 0.0, 0);
 		//Y
-		verts.data.push(0.0, 0, gridDim);
-		verts.data.push(0.0, 0, 0.0);
-		Array.prototype.push.apply(colors.data, color);
-		Array.prototype.push.apply(colors.data, color);
-
+		verts.data.push(0.0, 0, gridDim); verts.data.push(0.0, 0, 0.0);
+		
+		for(var i = 0; i < 6; i++){ Array.prototype.push.apply(colors.data, color); }
 		verts.numStrides = verts.data.length / verts.stride;
 		colors.numStrides = colors.data.length / colors.stride;
 
@@ -141,7 +103,7 @@ var GlobFactory = (function () {
 	
 	return{
 		createGlobs: createGlobs,
-		createGrid: createGrid,
+		createGlobStream: createGlobStream,
 		simpleGrid: simpleGrid
 	}
 });

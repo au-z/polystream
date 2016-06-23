@@ -17,5 +17,8 @@
   "license": "ISC",
   "devDependencies": {
     "lite-server": "^2.2.0"
+  },
+  "dependencies": {
+    "rx": "^4.1.0"
   }
 }

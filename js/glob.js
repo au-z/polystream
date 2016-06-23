@@ -12,10 +12,9 @@ function Glob(name, pos, verts, colors, drawOptions){
 	var o = drawOptions || {};
 	if(!o.mode) throw new Error('A webGL draw mode must be passed when creating the drawable Glob \'' + this.name + '\'');
 	this.drawMode = o.mode;
-	if(o.gl){
-		this.createBuffer('positionBuffer', o.gl, this.verts);
-		this.createBuffer('colorBuffer', o.gl, this.colors);
-	}
+	this.staticOrDynamicDraw = o.staticOrDynamicDraw || o.gl.STATIC_DRAW;
+	this.updateBuffer('positionBuffer', o.gl, this.verts, true);
+	this.updateBuffer('colorBuffer', o.gl, this.colors, true);
 }
 
 Glob.prototype = {
@@ -37,12 +36,12 @@ Glob.prototype = {
 		this.timeUpdates[name] = timeUpdate;
 	},
 
-	createBuffer: function(name, gl, bufferData){
-		this[name] = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, this[name]);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bufferData.data), gl.STATIC_DRAW);
-		this[name].stride = bufferData.stride;
-		this[name].numStrides = bufferData.numStrides;
+	updateBuffer: function(bufferName, gl, bufferData, create){
+		if(create) this[bufferName] = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, this[bufferName]);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bufferData.data), this.staticOrDynamicDraw);
+		this[bufferName].stride = bufferData.stride;
+		this[bufferName].numStrides = bufferData.numStrides;
 	},
 
 	draw: function(gl, mvMatrix, positionAttribute, colorAttribute, fnSetMatrixUniforms){
@@ -55,20 +54,37 @@ Glob.prototype = {
 			}
 		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+		if(this.staticOrDynamicDraw === gl.DYNAMIC_DRAW){
+			gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.verts.data));
+		}
 		gl.vertexAttribPointer(positionAttribute, this.positionBuffer.stride, gl.FLOAT, false, 0, 0);
 		if(colorAttribute){
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
 			gl.vertexAttribPointer(colorAttribute, this.colorBuffer.stride, gl.FLOAT, false, 0, 0);
 		}
 		fnSetMatrixUniforms();
-		gl.drawArrays(this.drawMode, 0, this.positionBuffer.numStrides);
+		//TODO: update this.positionBuffer.numStrides
+		gl.drawArrays(this.drawMode, 0, this.verts.numStrides);
 		return GL.popMatrix();
 	},
 
 	animate: function(animation, args){
 		if(!this.animations[animation]) throw new Error('Animation ' + animation + 'not found for Glob \'' + this.name + '\'');
 		this.animations[animation].apply(this, args);
-	}
+	},
 
+	stripVertData: function(){
+		var data = this.verts.data;
+		this.verts.data = [data[0], data[1], data[2], data[3], data[4], data[5]];
+		this.verts.numStrides = 2;
+		this.positionBuffer.numStrides = 2;
+		return data;
+	},
+
+	passToBuffer: function(vert, gl){
+		Array.prototype.push.apply(this.verts.data, vert);
+		this.verts.numStrides++;
+		this.updateBuffer(this.positionBuffer, gl, this.verts, true);
+	}
 }
 
