@@ -10,9 +10,7 @@ var GlobFactory = (function () {
 					loadGlobs.push(httpGetGlob(reqs[i]));
 				}
 			}
-			Promise.all(loadGlobs)
-			.then(createGlobCollection)
-			.then(resolve, reject);
+			Promise.all(loadGlobs).then(createGlobCollection).then(resolve, reject);
 		});
 	}
 
@@ -52,7 +50,7 @@ var GlobFactory = (function () {
 
 	function httpGetGlob(req){
 		return new Promise(function(resolve, reject){
-			console.log('Loading new glob from: ' + req.url);
+			// console.log('Loading new glob from: ' + req.url);
 			var http = new XMLHttpRequest();
 			http.responseType = 'text';
 			http.open('GET', req.url);
@@ -79,14 +77,14 @@ var GlobFactory = (function () {
 		if(!obj.verts) throw new Error('Error parsing Glob. Missing data: \'verts\'. Check your JSON Glob defn.');
 		if(!req.drawOptions.gl) throw new Error('Error parsing Glob. Missing data: \'drawOptions.gl\'. Check your arguments.');
 		if(!req.drawOptions.mode) throw new Error('Error parsing Glob. Missing data: \'drawOptions.mode\'. Check your arguments.');
-		var glob = new Glob(req.name, req.pos, obj.verts, obj.colors, req.drawOptions, req.lazy);
+		var glob = new Glob(req.name, req.pos, obj.verts, obj.elements, obj.colors, req.drawOptions, req.lazy);
 		return glob;
 	}
 
 	function simpleGrid(req){
 		var verts = {}; verts.data = []; verts.stride = 3;
 		var colors = {}; colors.data = []; colors.stride = 4;
-		var color = [0.8, 0.8, 0.8, 1.0];
+		var color = [0.65, 0.65, 0.65, 1.0];
 		var gridDim = 1.6;
 		verts.data.push(0, gridDim, 0.0); verts.data.push(0, 0.0, 0.0);
 		verts.data.push(gridDim, 0.0, 0); verts.data.push(0.0, 0.0, 0);
@@ -96,7 +94,7 @@ var GlobFactory = (function () {
 		
 		verts.numStrides = verts.data.length / verts.stride;
 		colors.numStrides = colors.data.length / colors.stride;
-		var grid = new Glob(req.name, req.pos, verts, colors, req.drawOptions);
+		var grid = new Glob(req.name, req.pos, verts, null, colors, req.drawOptions);
 		return grid;
 	}
 	

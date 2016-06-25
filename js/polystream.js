@@ -10,7 +10,7 @@ var polystream = (function () {
 
 	function polystream(id, options) {
 		canvas = document.getElementById(id);
-		GL.initGL(canvas, [0.9, 0.9, 0.9, 1.0], options.vs, options.fs)
+		GL.initGL(canvas, [0.23, 0.23, 0.23, 1.0], options.vs, options.fs)
 		.then(renderScene, function(error){ throw error; })
 		.catch(function(e){ console.error(e); })
 	}
@@ -22,9 +22,9 @@ var polystream = (function () {
 		
 		createGlobs().then(function(_globs){
 			globs = _globs;
-			registerAnimations();
+			printGlobs();
 			tick();
-		}, function(error){throw error; });
+		});
 	}
 
 	function linkShaders(){
@@ -32,11 +32,6 @@ var polystream = (function () {
 			attributes: ['aVertexPosition', 'aVertexColor'],
 			uniforms: ['uPMatrix', 'uMVMatrix']
 		});
-	}
-
-	function setMatrixUniforms(){
-		gl.uniformMatrix4fv(sp.uniforms.uPMatrix, false, pMatrix);
-		gl.uniformMatrix4fv(sp.uniforms.uMVMatrix, false, mvMatrix);
 	}
 
 	function createGlobs(){
@@ -53,38 +48,39 @@ var polystream = (function () {
 					url: 'glob/triangle.json',
 					drawOptions: {gl: gl, mode: gl.LINE_LOOP }
 				},
-				teapot: { name: 'teapot',
-					pos: [0,0,-60],
-					url: 'glob/teapot.json',
-					drawOptions: { gl: gl, mode: gl.LINE_STRIP },
+				cube: { name: 'cube',
+					pos: [0,0,-10],
+					url: 'glob/cube.json',
+					drawOptions: { gl: gl, mode: gl.TRIANGLES },
 					lazy: {arrayKey: 'verts', throttle: 10, bufferGrouping: 3 }
 				}
 			}).then(function(result){
-				subscribeToStreams(result.streams);
 				result.globs.grid = grid;
+				subscribeToStreams(result.streams);
+				registerAnimations(result.globs);
 				resolve(result.globs);
-			}, function(error){ reject(error); });
+			}, reject);
 		});
 	}
 
 	function subscribeToStreams(streams){
 		if (Object.keys(streams).length === 0) return;
-		streams.teapot.subscribe(function(value){
-			globs.teapot.push('verts', value, gl);
+		streams.cube.subscribe(function(value){
+			globs.cube.push('verts', value, gl);
 		});
 	}
 
-	function registerAnimations(){
-		globs.teapot.registerAnimation('rotate',
+	function registerAnimations(globs){
+		globs.cube.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [1, 1, 1]);
 			},
 			function(glob, t){ glob.rotation = ((10 * t) / 1000.0) % 360; });
-		globs.triangle.registerAnimation('rotate',
-			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
-			},
-			function(glob, t){ glob.rotation = ((90 * t) / 1000.0) % 360; });
+		// globs.triangle.registerAnimation('rotate',
+		// 	function(glob, mvMatrix){
+		// 		mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
+		// 	},
+		// 	function(glob, t){ glob.rotation = ((90 * t) / 1000.0) % 360; });
 	}
 
 	function tick(){
@@ -97,8 +93,13 @@ var polystream = (function () {
 		GL.resize();
 		GL.drawGL(pMatrix);
 		for(var i in globs){
-			if(globs[i] !== undefined) mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
+			mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
 		}
+	}
+
+	function setMatrixUniforms(){
+		gl.uniformMatrix4fv(sp.uniforms.uPMatrix, false, pMatrix);
+		gl.uniformMatrix4fv(sp.uniforms.uMVMatrix, false, mvMatrix);
 	}
 
 	function animate(){
