@@ -3,30 +3,28 @@ var polystream = (function () {
 	var gl, sp;
 	var canvas;
 	var globs = {};
-	var mvMatrix, pMatrix;
+	var mvMatrix = mat4.create();
+	var pMatrix = mat4.create();
 
 	var lastTime = 0;
 
 	function polystream(id, options) {
 		canvas = document.getElementById(id);
-		mvMatrix = mat4.create();
-		pMatrix = mat4.create();
-
-		GL.initGL(canvas, [0.24, 0.24, 0.24, 1.0], options.vs, options.fs)
-		.then(function(glUtils){
-			gl = glUtils.gl;
-			sp = glUtils.shaderProgram;
-			
-			linkShaders();
-			
-			createGlobs().then(function(glObjects){
-				globs = glObjects;
-				registerAnimations();
-				printGlobs();
-				tick();
-			}, function(error){throw error; });
-		})
+		GL.initGL(canvas, [0.9, 0.9, 0.9, 1.0], options.vs, options.fs)
+		.then(renderScene, function(error){ throw error; })
 		.catch(function(e){ console.error(e); })
+	}
+
+	function renderScene(glTools){
+		gl = glTools.gl;
+		sp = glTools.shaderProgram;
+		linkShaders();
+		
+		createGlobs().then(function(_globs){
+			globs = _globs;
+			registerAnimations();
+			tick();
+		}, function(error){throw error; });
 	}
 
 	function linkShaders(){
@@ -44,41 +42,49 @@ var polystream = (function () {
 	function createGlobs(){
 		var grid = globFactory.simpleGrid({
 			name: 'grid',
-			pos: [-3,-3,-15],
+			pos: [-2,-2,-9],
 			drawOptions: { gl: gl, mode: gl.LINES }
 		});
 
 		return new Promise(function(resolve, reject){
 			globFactory.createGlobs({
-				streampot: {
-					name: 'streampot',
-					async: true,
-					pos: [0,0,-70],
+				triangle: { name: 'triangle',
+					pos: [20, -20,-70],
+					url: 'glob/triangle.json',
+					drawOptions: {gl: gl, mode: gl.LINE_LOOP }
+				},
+				teapot: { name: 'teapot',
+					pos: [0,0,-60],
 					url: 'glob/teapot.json',
-					drawOptions: { gl: gl, mode: gl.LINE_STRIP, staticOrDynamicDraw: gl.DYNAMIC_DRAW }
+					drawOptions: { gl: gl, mode: gl.LINE_STRIP },
+					lazy: {arrayKey: 'verts', throttle: 10, bufferGrouping: 3 }
 				}
 			}).then(function(result){
-				bufferDataStreams(result.streams);
+				subscribeToStreams(result.streams);
 				result.globs.grid = grid;
 				resolve(result.globs);
 			}, function(error){ reject(error); });
 		});
 	}
 
-	function bufferDataStreams(streams){
-		streams.streampot.subscribe(function(vert){ 
-			globs.streampot.passToBuffer(vert, gl);
+	function subscribeToStreams(streams){
+		if (Object.keys(streams).length === 0) return;
+		streams.teapot.subscribe(function(value){
+			globs.teapot.push('verts', value, gl);
 		});
 	}
 
 	function registerAnimations(){
-		globs.streampot.registerAnimation('rotate',
+		globs.teapot.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, .5]);
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
 			},
-			function(glob, t){
-				glob.rotation = ((10 * t) / 1000.0) % 360;
-			});
+			function(glob, t){ glob.rotation = ((10 * t) / 1000.0) % 360; });
+		globs.triangle.registerAnimation('rotate',
+			function(glob, mvMatrix){
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
+			},
+			function(glob, t){ glob.rotation = ((90 * t) / 1000.0) % 360; });
 	}
 
 	function tick(){
@@ -87,32 +93,28 @@ var polystream = (function () {
 		animate();
 	}
 
-		function drawScene(){
-			GL.resize();
-			GL.drawGL(pMatrix);
-			for(var i in globs){
-				if(globs[i] !== undefined) mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
-			}
-		}
-
-		function animate(){
-			var timeNow = new Date().getTime();
-			if (lastTime != 0) {
-				var elapsed = timeNow - lastTime;
-				for(var i in globs){
-					for(var j in globs[i].timeUpdates){
-						globs[i].timeUpdates[j](globs[i], timeNow);
-					}
-				}
-			}
-			lastTime = timeNow;
-		}
-
-	function printGlobs(){
-		if(globs.length > 0){
-			for(var i in globs) globs[i].log();
+	function drawScene(){
+		GL.resize();
+		GL.drawGL(pMatrix);
+		for(var i in globs){
+			if(globs[i] !== undefined) mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
 		}
 	}
+
+	function animate(){
+		var timeNow = new Date().getTime();
+		if (lastTime != 0) {
+			var elapsed = timeNow - lastTime;
+			for(var i in globs){
+				for(var j in globs[i].timeUpdates){
+					globs[i].timeUpdates[j](globs[i], timeNow);
+				}
+			}
+		}
+		lastTime = timeNow;
+	}
+
+	function printGlobs(){ for(var i in globs) globs[i].log(); }
 
 	return {
 		start: function (id, options) {

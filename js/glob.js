@@ -1,8 +1,6 @@
-function Glob(name, pos, verts, colors, drawOptions){
+function Glob(name, pos, verts, colors, drawOptions, lazy){
 	this.name = name;
 	this.pos = pos || [0, 0, 0];
-	this.rotation = 0;
-
 	this.verts = verts || { data: [], stride: 0 };
 	this.verts.numStrides = verts.data.length / verts.stride;
 	this.colors = colors || { data: [], stride: 0 };
@@ -12,15 +10,13 @@ function Glob(name, pos, verts, colors, drawOptions){
 	var o = drawOptions || {};
 	if(!o.mode) throw new Error('A webGL draw mode must be passed when creating the drawable Glob \'' + this.name + '\'');
 	this.drawMode = o.mode;
-	this.staticOrDynamicDraw = o.staticOrDynamicDraw || o.gl.STATIC_DRAW;
+	this.drawType = lazy ? o.gl.DYNAMIC_DRAW : o.gl.STATIC_DRAW;
 	this.updateBuffer('positionBuffer', o.gl, this.verts, true);
 	this.updateBuffer('colorBuffer', o.gl, this.colors, true);
 }
 
 Glob.prototype = {
-	log: function(){
-		console.log(this);
-	},
+	log: function(){ console.log(this); },
 
 	generateColors: function(color, vertCount){
 		for(var i = 0; i < vertCount; i++){
@@ -39,7 +35,7 @@ Glob.prototype = {
 	updateBuffer: function(bufferName, gl, bufferData, create){
 		if(create) this[bufferName] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, this[bufferName]);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bufferData.data), this.staticOrDynamicDraw);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bufferData.data), this.drawType);
 		this[bufferName].stride = bufferData.stride;
 		this[bufferName].numStrides = bufferData.numStrides;
 	},
@@ -54,7 +50,7 @@ Glob.prototype = {
 			}
 		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-		if(this.staticOrDynamicDraw === gl.DYNAMIC_DRAW){
+		if(this.drawType === gl.DYNAMIC_DRAW){
 			gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(this.verts.data));
 		}
 		gl.vertexAttribPointer(positionAttribute, this.positionBuffer.stride, gl.FLOAT, false, 0, 0);
@@ -73,18 +69,19 @@ Glob.prototype = {
 		this.animations[animation].apply(this, args);
 	},
 
-	stripVertData: function(){
-		var data = this.verts.data;
-		this.verts.data = [data[0], data[1], data[2], data[3], data[4], data[5]];
-		this.verts.numStrides = 2;
+	strip: function(key){
+		var data = this[key].data;
+		this[key].data = [data[0], data[1], data[2], data[3], data[4], data[5]];
+		this[key].numStrides = 2;
 		this.positionBuffer.numStrides = 2;
-		return data;
+		var res = data.slice(6, data.length);
+		return res;
 	},
 
-	passToBuffer: function(vert, gl){
-		Array.prototype.push.apply(this.verts.data, vert);
-		this.verts.numStrides++;
-		this.updateBuffer(this.positionBuffer, gl, this.verts, true);
+	push: function(key, value, gl){
+		Array.prototype.push.apply(this[key].data, value);
+		this[key].numStrides += value.length / this[key].stride;
+		this.updateBuffer(this.positionBuffer, gl, this[key], true);
 	}
 }
 

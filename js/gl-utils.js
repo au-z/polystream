@@ -1,33 +1,34 @@
 var GLUtils = (function () {
 	var gl = null;
-	var clearColor = [0.2, 0.2, 0.2, 1.0];
+	var clearColor;
 	var matrixStack = [];
 
-	function initGL(canvas, clearColor, vsUrl, fsUrl){
+	function initGL(canvas, _clearColor, vsUrl, fsUrl){
 		try {
 			gl = canvas.getContext('webgl');
 			gl.viewportWidth = canvas.width;
 			gl.viewportHeight = canvas.height;
-			clearColor = clearColor;
+			clearColor = _clearColor;
 		} catch (e) {
 			if (!gl) alert('Could not init WebGL. Sorry. :(');
 		}
-
+		
 		return new Promise(function(resolve, reject){
-			initShaders(vsUrl, fsUrl).then(
-				function(program){ resolve({ gl: gl, shaderProgram: program }); }, 
-				function(error){ reject(error); });
+			initShaders(vsUrl, fsUrl)
+				.then(function(program){ 
+					resolve({ gl: gl, shaderProgram: program }); 
+				}, reject);
 		});
 	}
 
-	function linkShaders(program, props){
-		if(props.attributes.length > 0){
+	function linkShaders(program, shaderInputs){
+		if(shaderInputs.attributes && shaderInputs.attributes.length > 0){
 			program.attributes = {};
-			props.attributes.map(attrib => attribToProgram(attrib, program));
+			shaderInputs.attributes.map(attrib => attribToProgram(attrib, program));
 		}
-		if(props.uniforms.length > 0){
+		if(shaderInputs.uniforms && shaderInputs.uniforms.length > 0){
 			program.uniforms = {};
-			props.uniforms.map(uniform => uniformToProgram(uniform, program));
+			shaderInputs.uniforms.map(uniform => uniformToProgram(uniform, program));
 		}
 	}
 
@@ -47,22 +48,21 @@ var GLUtils = (function () {
 		}
 
 	function drawGL(pMatrix){
-		gl.clearColor(0.94, 0.94, 0.94, 1.0);
+		gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
 		gl.enable(gl.DEPTH_TEST);
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		//set up projection matrix
-		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+		mat4.perspective(50, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 	}
 
 		function initShaders(vsUrl, fsUrl){
 			return new Promise(function(resolve, reject){
 				var loadVertShader = loadShaderAsync(vsUrl, 'vertex');
 				var loadFragShader = loadShaderAsync(fsUrl, 'fragment');
-				Promise.all([loadVertShader, loadFragShader]).then(createProgram).then(
-					function(shader){ resolve(shader); }, 
-					function(error){ reject(error); }
-				);
+				Promise.all([loadVertShader, loadFragShader])
+				.then(createProgram)
+				.then(resolve, reject);
 			});
 		}
 

@@ -1,35 +1,36 @@
 var GlobFactory = (function () {
-	function createGlobStream(req){
-		return new Promise(function(resolve, reject){
-			var glob$ = Rx.Observable.fromPromise(httpGetGlob(req.name, req.pos, req.url, req.drawOptions));
-			glob$.subscribe( function(nameAndGlob){
-					var glob = nameAndGlob.glob;
-					var data = glob.stripVertData();
-					var data$ = Rx.Observable.interval(35)
-						.take(data.length)
-						.map(i => {return data[i]})
-						.bufferWithCount(3);
-					resolve({ name: nameAndGlob.name, glob: glob, data$: data$ });
-				},
-				function(error){reject(error);}
-			);
-		});
-	}
-
-	function createGlobs(req){
+	function createGlobs(reqs){
 		return new Promise(function (resolve, reject){
 			var loadGlobs = [];
 			var dataStreams = {};
-			for(var i in req){
-				if(req[i].async){
-					loadGlobs.push(createGlobStream(req[i]));
+			for(var i in reqs){
+				if(reqs[i].lazy){
+					loadGlobs.push(createGlobStream(reqs[i]));
 				}else{
-					loadGlobs.push(httpGetGlob( req[i].name, req[i].pos, req[i].url, req[i].drawOptions));
+					loadGlobs.push(httpGetGlob(reqs[i]));
 				}
 			}
-			Promise.all(loadGlobs).then(createGlobCollection).then(
-				function(globs){ resolve(globs); },
-				function(error){ reject(error); }
+			Promise.all(loadGlobs)
+			.then(createGlobCollection)
+			.then(resolve, reject);
+		});
+	}
+
+	function createGlobStream(req){
+		return new Promise(function(resolve, reject){
+			var glob$ = Rx.Observable.fromPromise(httpGetGlob(req));
+			glob$.subscribe(
+				function(globResponse){
+					var throttle = req.lazy.throttle || 10;
+					var glob = globResponse.glob;
+					var data = glob.strip(req.lazy.arrayKey || 'verts');
+					var data$ = Rx.Observable.interval(throttle)
+						.take(data.length)
+						.map(i => {return data[i]})
+						.bufferWithCount(req.lazy.bufferGrouping);
+					resolve({ name: globResponse.name, glob: glob, data$: data$ });
+				},
+				reject
 			);
 		});
 	}
@@ -39,7 +40,7 @@ var GlobFactory = (function () {
 			var globs = {};
 			var streams = {};
 			globArray.map(el => addToGlobsAndStreams(globs, streams, el));
-			if(globArray.length !== Object.keys(globs).length) reject(Error('Could not convert globArray to a globs object.'));
+			if(globArray.length !== Object.keys(globs).length) reject(Error('Could not convert array of globs to a collection of globs!'));
 			resolve({globs: globs, streams: streams});
 		});
 	}
@@ -49,19 +50,19 @@ var GlobFactory = (function () {
 			if(element.data$) streams[element.name] = element.data$;
 		}
 
-	function httpGetGlob(name, pos, url, drawOptions){
+	function httpGetGlob(req){
 		return new Promise(function(resolve, reject){
-			console.log('Loading new glob from: ' + url);
+			console.log('Loading new glob from: ' + req.url);
 			var http = new XMLHttpRequest();
 			http.responseType = 'text';
-			http.open('GET', url);
+			http.open('GET', req.url);
 			http.onload = function(){
 				if(http.status === 200){
-					var glob = parseGlob(name, pos, http.response, drawOptions);
+					var glob = parseGlob(req, http.response);
 					if(!glob) reject(Error('Parse error. Malformed http response: ', http.response));
-					resolve({name: name, glob: glob});
+					resolve({name: req.name, glob: glob});
 				}else{
-					reject(Error('Network error.'));
+					reject(Error('Network error. Status code: ' + http.status));
 				}
 			}
 			http.onerror = function(){
@@ -71,39 +72,36 @@ var GlobFactory = (function () {
 		});
 	}
 
-	function parseGlob(name, pos, json, drawOptions){
+	function parseGlob(req, json){
 		var obj = JSON.parse(json);
+		if(!req.name) throw new Error('Error parsing Glob. Missing data: \'name\'. Check your JSON Glob defn.');
+		if(!req.pos) throw new Error('Error parsing Glob. Missing data: \'pos\'. Check your JSON Glob defn.');
 		if(!obj.verts) throw new Error('Error parsing Glob. Missing data: \'verts\'. Check your JSON Glob defn.');
-		if(!obj.colors) throw new Error('Error parsing Glob. Missing data: \'colors\'. Check your JSON Glob defn.');
-		if(!drawOptions.gl) throw new Error('Error parsing Glob. Missing data: \'drawOptions.gl\'. Check your arguments.');
-		if(!drawOptions.mode) throw new Error('Error parsing Glob. Missing data: \'drawOptions.mode\'. Check your arguments.');
-		var glob = new Glob(name, pos, obj.verts, obj.colors, drawOptions);
+		if(!req.drawOptions.gl) throw new Error('Error parsing Glob. Missing data: \'drawOptions.gl\'. Check your arguments.');
+		if(!req.drawOptions.mode) throw new Error('Error parsing Glob. Missing data: \'drawOptions.mode\'. Check your arguments.');
+		var glob = new Glob(req.name, req.pos, obj.verts, obj.colors, req.drawOptions, req.lazy);
 		return glob;
 	}
 
-	function simpleGrid(globTemplate){
+	function simpleGrid(req){
 		var verts = {}; verts.data = []; verts.stride = 3;
 		var colors = {}; colors.data = []; colors.stride = 4;
-		var color = [0.3, 0.3, 0.3, 1.0];
-		var gridDim = 2;
-		//X
+		var color = [0.8, 0.8, 0.8, 1.0];
+		var gridDim = 1.6;
 		verts.data.push(0, gridDim, 0.0); verts.data.push(0, 0.0, 0.0);
-		//Z
 		verts.data.push(gridDim, 0.0, 0); verts.data.push(0.0, 0.0, 0);
-		//Y
 		verts.data.push(0.0, 0, gridDim); verts.data.push(0.0, 0, 0.0);
-		
+
 		for(var i = 0; i < 6; i++){ Array.prototype.push.apply(colors.data, color); }
+		
 		verts.numStrides = verts.data.length / verts.stride;
 		colors.numStrides = colors.data.length / colors.stride;
-
-		var grid = new Glob(globTemplate.name, globTemplate.pos, verts, colors, globTemplate.drawOptions);
+		var grid = new Glob(req.name, req.pos, verts, colors, req.drawOptions);
 		return grid;
 	}
 	
 	return{
 		createGlobs: createGlobs,
-		createGlobStream: createGlobStream,
 		simpleGrid: simpleGrid
 	}
 });
