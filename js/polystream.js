@@ -52,6 +52,12 @@ var polystream = (function () {
 					pos: [0,0,-10],
 					url: 'glob/cube.json',
 					drawOptions: { gl: gl, mode: gl.TRIANGLES },
+					lazy: {arrayKey: 'verts', throttle: 200, bufferGrouping: 12 }
+				},
+				teapot: { name: 'teapot',
+					pos: [-40, -20, -80],
+					url: 'glob/teapot.json',
+					drawOptions: {gl: gl, mode: gl.LINE_STRIP },
 					lazy: {arrayKey: 'verts', throttle: 10, bufferGrouping: 3 }
 				}
 			}).then(function(result){
@@ -68,19 +74,27 @@ var polystream = (function () {
 		streams.cube.subscribe(function(value){
 			globs.cube.push('verts', value, gl);
 		});
+		streams.teapot.subscribe(function(vert){
+			globs.teapot.push('verts', vert, gl);
+		});
 	}
 
 	function registerAnimations(globs){
 		globs.cube.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [1, 1, 1]);
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [.5, 1, -.4]);
 			},
-			function(glob, t){ glob.rotation = ((10 * t) / 1000.0) % 360; });
-		// globs.triangle.registerAnimation('rotate',
-		// 	function(glob, mvMatrix){
-		// 		mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
-		// 	},
-		// 	function(glob, t){ glob.rotation = ((90 * t) / 1000.0) % 360; });
+			function(glob, t){ glob.rotation = ((30 * t) / 1000.0) % 360; });
+		globs.teapot.registerAnimation('rotate',
+			function(glob, mvMatrix){
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [.5, 1, 0]);
+			},
+			function(glob, t){ glob.rotation = ((40 * t) / 1000.0) % 360; });
+		globs.triangle.registerAnimation('rotate',
+			function(glob, mvMatrix){
+				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
+			},
+			function(glob, t){ glob.rotation = ((90 * t) / 1000.0) % 360; });
 	}
 
 	function tick(){

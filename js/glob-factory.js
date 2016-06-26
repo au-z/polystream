@@ -37,20 +37,17 @@ var GlobFactory = (function () {
 		return new Promise(function(resolve, reject){
 			var globs = {};
 			var streams = {};
-			globArray.map(el => addToGlobsAndStreams(globs, streams, el));
+			globArray.map(el => {
+				globs[el.name] = el.glob;
+				if(el.data$) streams[el.name] = el.data$;
+			});
 			if(globArray.length !== Object.keys(globs).length) reject(Error('Could not convert array of globs to a collection of globs!'));
 			resolve({globs: globs, streams: streams});
 		});
 	}
 
-		function addToGlobsAndStreams(globs, streams, element){
-			globs[element.name] = element.glob;
-			if(element.data$) streams[element.name] = element.data$;
-		}
-
 	function httpGetGlob(req){
 		return new Promise(function(resolve, reject){
-			// console.log('Loading new glob from: ' + req.url);
 			var http = new XMLHttpRequest();
 			http.responseType = 'text';
 			http.open('GET', req.url);
@@ -77,7 +74,7 @@ var GlobFactory = (function () {
 		if(!obj.verts) throw new Error('Error parsing Glob. Missing data: \'verts\'. Check your JSON Glob defn.');
 		if(!req.drawOptions.gl) throw new Error('Error parsing Glob. Missing data: \'drawOptions.gl\'. Check your arguments.');
 		if(!req.drawOptions.mode) throw new Error('Error parsing Glob. Missing data: \'drawOptions.mode\'. Check your arguments.');
-		var glob = new Glob(req.name, req.pos, obj.verts, obj.elements, obj.colors, req.drawOptions, req.lazy);
+		var glob = new Glob(req.name, req.pos, obj.verts, obj.elements, obj.colors, obj.normals, req.drawOptions, req.lazy);
 		return glob;
 	}
 
@@ -94,7 +91,7 @@ var GlobFactory = (function () {
 		
 		verts.numStrides = verts.data.length / verts.stride;
 		colors.numStrides = colors.data.length / colors.stride;
-		var grid = new Glob(req.name, req.pos, verts, null, colors, req.drawOptions);
+		var grid = new Glob(req.name, req.pos, verts, null, colors, null, req.drawOptions, null);
 		return grid;
 	}
 	

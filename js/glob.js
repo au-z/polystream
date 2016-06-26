@@ -1,20 +1,28 @@
-function Glob(name, pos, verts, elements, colors, drawOptions, lazy){
+function Glob(name, pos, verts, elements, colors, normals, drawOptions, lazy){
 	this.name = name;
 	this.pos = pos || [0, 0, 0];
 	if(!drawOptions.mode) throw new Error('A webGL draw mode must be passed when creating the drawable Glob \'' + this.name + '\'');
 	this.drawMode = drawOptions.mode;
 	this.drawType = lazy ? drawOptions.gl.DYNAMIC_DRAW : drawOptions.gl.STATIC_DRAW;
+	this.lazy = lazy || {};
 
 	this.verts = verts || { data: [], stride: 0 };
 	this.updateBuffer(drawOptions.gl, this.verts, 'float32', drawOptions.gl.ARRAY_BUFFER);
 
-	this.colors = colors || { monochrome: true, color: [1.0, 1.0, 1.0, 1.0] };
-	if(colors.monochrome === true) this.generateColors(colors.color, this.verts.numStrides);
-	this.updateBuffer(drawOptions.gl, this.colors, 'float32', drawOptions.gl.ARRAY_BUFFER);
+	if(colors){
+		this.colors = colors || { monochrome: true, color: [1.0, 1.0, 1.0, 1.0] };
+		if(colors.monochrome === true) this.generateColors(colors.color, this.verts.numStrides);
+		this.updateBuffer(drawOptions.gl, this.colors, 'float32', drawOptions.gl.ARRAY_BUFFER);
+	}
 
 	if(elements){
 		this.elements = elements;
 		this.updateBuffer(drawOptions.gl, this.elements, 'uint16', drawOptions.gl.ELEMENT_ARRAY_BUFFER);
+	}
+
+	if(normals){
+		this.normals = normals;
+		this.updateBuffer(drawOptions.gl, this.normals, 'float32', drawOptions.gl.ARRAY_BUFFER);
 	}
 }
 
@@ -34,7 +42,9 @@ Glob.prototype = {
 	},
 
 	updateBuffer: function(gl, bufferData, dataType, bufferType){
-		bufferData.buffer = gl.createBuffer();
+		try{
+			bufferData.buffer = gl.createBuffer();
+		}catch (e){ console.log("Error creating buffer: ", bufferData); }
 		bufferData.numStrides = bufferData.data.length / bufferData.stride;
 		gl.bindBuffer(bufferType, bufferData.buffer);
 		var data;
@@ -100,17 +110,37 @@ Glob.prototype = {
 
 	strip: function(key){
 		var data = this[key].data;
-		this[key].data = [data[0], data[1], data[2], data[3], data[4], data[5]];
-		this[key].numStrides = 2;
-		this[key].buffer.numStrides = 2;
-		var res = data.slice(6, data.length);
+		var dataLen = data.length;
+		this[key].numStrides = this.lazy.bufferGrouping / this[key].stride;
+		this[key].data = data.slice(0, this.lazy.bufferGrouping);
+		if(key === 'verts' && this.elements) this.registerSyncStride('elements', 'verts', dataLen);
+		var res = data.slice(this.lazy.bufferGrouping, data.length);
 		return res;
+	},
+
+	registerSyncStride: function(slave, master, dataLen){
+		var elementRatio = dataLen / this[slave].data.length;
+		this[slave].stride = this[master].stride;
+		this[slave].numStrides = this.lazy.bufferGrouping / elementRatio;
+
+		if(!this[master].synced) this[master].synced = [];
+		this[master].synced.push({slave: slave, relativeRate: this[master].numStrides / this[slave].numStrides });
+		
+		console.log(master + ': ' + this[master].numStrides + " => " + slave + ": " + this[slave].numStrides);
+	},
+
+	syncStride: function(key){
+		this[key].synced.map(s => {			
+			this[s.slave].numStrides = this[key].numStrides / s.relativeRate;
+			console.log(key + ': ' + this[key].numStrides + " => " + s.slave + ": " + this[s.slave].numStrides);
+		});
 	},
 
 	push: function(key, value, gl){
 		Array.prototype.push.apply(this[key].data, value);
 		this[key].numStrides += value.length / this[key].stride;
-		this.updateBuffer(this.verts.buffer, gl, this[key], true);
+		this.updateBuffer(gl, this[key], 'float32', gl.ARRAY_BUFFER);
+		if(this[key].synced) this.syncStride(key);
 	},
 
 	log: function(){ console.log(this); }
