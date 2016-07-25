@@ -1,22 +1,22 @@
 var GlobFactory = (function () {
-	function createGlobs(reqs){
+	function createGlobs(configs){
 		return new Promise(function (resolve, reject){
 			var loadGlobs = [];
 			var dataStreams = {};
-			for(var i in reqs){
-				if(reqs[i].lazy){
-					loadGlobs.push(createGlobStream(reqs[i]));
+			for(var i in configs){
+				if(configs[i].lazy){
+					loadGlobs.push(getGlobAsync(configs[i]));
 				}else{
-					loadGlobs.push(httpGetGlob(reqs[i]));
+					loadGlobs.push(getGlob(configs[i]));
 				}
 			}
-			Promise.all(loadGlobs).then(createGlobCollection).then(resolve, reject);
+			Promise.all(loadGlobs).then(toObj).then(resolve, reject);
 		});
 	}
 
-	function createGlobStream(req){
+	function getGlobAsync(req){
 		return new Promise(function(resolve, reject){
-			var glob$ = Rx.Observable.fromPromise(httpGetGlob(req));
+			var glob$ = Rx.Observable.fromPromise(getGlob(req));
 			glob$.subscribe(
 				function(globResponse){
 					var throttle = req.lazy.throttle || 10;
@@ -33,7 +33,7 @@ var GlobFactory = (function () {
 		});
 	}
 
-	function createGlobCollection(globArray){
+	function toObj(globArray){
 		return new Promise(function(resolve, reject){
 			var globs = {};
 			var streams = {};
@@ -46,14 +46,14 @@ var GlobFactory = (function () {
 		});
 	}
 
-	function httpGetGlob(req){
+	function getGlob(req){
 		return new Promise(function(resolve, reject){
 			var http = new XMLHttpRequest();
 			http.responseType = 'text';
 			http.open('GET', req.url);
 			http.onload = function(){
 				if(http.status === 200){
-					var glob = parseGlob(req, http.response);
+					var glob = parseToGlob(req, http.response);
 					if(!glob) reject(Error('Parse error. Malformed http response: ', http.response));
 					resolve({name: req.name, glob: glob});
 				}else{
@@ -67,7 +67,7 @@ var GlobFactory = (function () {
 		});
 	}
 
-	function parseGlob(req, json){
+	function parseToGlob(req, json){
 		var obj = JSON.parse(json);
 		if(!req.name) throw new Error('Error parsing Glob. Missing data: \'name\'. Check your JSON Glob defn.');
 		if(!req.pos) throw new Error('Error parsing Glob. Missing data: \'pos\'. Check your JSON Glob defn.');

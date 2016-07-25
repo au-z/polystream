@@ -1,5 +1,4 @@
 var GLUtils = (function () {
-	var gl = null;
 	var clearColor;
 	var matrixStack = [];
 
@@ -15,7 +14,7 @@ var GLUtils = (function () {
 		
 		return new Promise(function(resolve, reject){
 			initShaders(vsUrl, fsUrl)
-				.then(function(program){ 
+				.then(function(program){
 					resolve({ gl: gl, shaderProgram: program }); 
 				}, reject);
 		});

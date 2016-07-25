@@ -11,18 +11,16 @@ var polystream = (function () {
 	function polystream(id, options) {
 		canvas = document.getElementById(id);
 		GL.initGL(canvas, [0.23, 0.23, 0.23, 1.0], options.vs, options.fs)
-		.then(renderScene, function(error){ throw error; })
-		.catch(function(e){ console.error(e); })
+		.then(render)
+		.catch(function(e){ console.error(e); });
 	}
 
-	function renderScene(glTools){
+	function render(glTools){
 		gl = glTools.gl;
 		sp = glTools.shaderProgram;
 		linkShaders();
-		
 		createGlobs().then(function(_globs){
 			globs = _globs;
-			printGlobs();
 			tick();
 		});
 	}
@@ -32,6 +30,10 @@ var polystream = (function () {
 			attributes: ['aVertexPosition', 'aVertexColor'],
 			uniforms: ['uPMatrix', 'uMVMatrix']
 		});
+		sp.setMatrixUniforms = function(){
+			gl.uniformMatrix4fv(sp.uniforms.uPMatrix, false, pMatrix);
+			gl.uniformMatrix4fv(sp.uniforms.uMVMatrix, false, mvMatrix);
+		};
 	}
 
 	function createGlobs(){
@@ -107,13 +109,8 @@ var polystream = (function () {
 		GL.resize();
 		GL.drawGL(pMatrix);
 		for(var i in globs){
-			mvMatrix = globs[i].draw(gl, mvMatrix, sp.attributes.aVertexPosition, sp.attributes.aVertexColor, setMatrixUniforms);
+			mvMatrix = globs[i].draw(gl, sp, mvMatrix);
 		}
-	}
-
-	function setMatrixUniforms(){
-		gl.uniformMatrix4fv(sp.uniforms.uPMatrix, false, pMatrix);
-		gl.uniformMatrix4fv(sp.uniforms.uMVMatrix, false, mvMatrix);
 	}
 
 	function animate(){
@@ -130,13 +127,17 @@ var polystream = (function () {
 	}
 
 	function printGlobs(){ for(var i in globs) globs[i].log(); }
+	function getGl(){ return gl; }
+	function getSp(){ return sp; }
 
 	return {
 		start: function (id, options) {
 			if (!instance) { instance = new polystream(id, options); }
 			return instance;
 		},
-		printGlobs: printGlobs
+		printGlobs: printGlobs,
+		getGl: getGl,
+		getSp: getSp
 	}
 })();
 

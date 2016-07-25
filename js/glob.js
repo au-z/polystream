@@ -61,7 +61,7 @@ Glob.prototype = {
 		gl.bufferData(bufferType, data, this.drawType);
 	},
 
-	draw: function(gl, mvMatrix, positionAttribute, colorAttribute, fnSetMatrixUniforms){
+	draw: function(gl, sp, mvMatrix){
 		mat4.identity(mvMatrix);
 		mat4.translate(mvMatrix, this.pos);
 		GL.pushMatrix(mvMatrix);
@@ -72,11 +72,11 @@ Glob.prototype = {
 			}
 		}
 
-		this._bindVerts(gl, positionAttribute);
-		if(this.colors) this._bindColors(gl, colorAttribute);
+		this._bindVerts(gl, this.findAttribute(sp, 'Position'));
+		if(this.colors) this._bindColors(gl, this.findAttribute(sp, 'Color'));
 		if(this.elements) this._bindElements(gl);
 
-		fnSetMatrixUniforms();
+		sp.setMatrixUniforms();
 
 		if(this.elements){
 			gl.drawElements(this.drawMode, this.elements.numStrides, gl.UNSIGNED_SHORT, 0);
@@ -102,6 +102,15 @@ Glob.prototype = {
 		_bindElements: function(gl){
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.elements.buffer);
 		},
+
+	findAttribute: function(sp, keyword){
+		for(var a in sp.attributes){
+			if(a.includes(keyword)){
+				return sp.attributes[a];
+			}
+		}
+		throw new Error('attribute for keyword "' + keyword + '" not found!');
+	},
 
 	animate: function(animation, args){
 		if(!this.animations[animation]) throw new Error('Animation ' + animation + 'not found for Glob \'' + this.name + '\'');
