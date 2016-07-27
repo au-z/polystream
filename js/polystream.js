@@ -18,14 +18,14 @@ var polystream = (function () {
 	function render(glTools){
 		gl = glTools.gl;
 		sp = glTools.shaderProgram;
-		linkShaders();
+		setupShaders();
 		createGlobs().then(function(_globs){
 			globs = _globs;
 			tick();
 		});
 	}
 
-	function linkShaders(){
+	function setupShaders(){
 		GL.linkShaders(sp, {
 			attributes: ['aVertexPosition', 'aVertexColor'],
 			uniforms: ['uPMatrix', 'uMVMatrix']
@@ -84,17 +84,17 @@ var polystream = (function () {
 	function registerAnimations(globs){
 		globs.cube.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [.5, 1, -.4]);
+				mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [.5, 1, -.4]);
 			},
 			function(glob, t){ glob.rotation = ((30 * t) / 1000.0) % 360; });
 		globs.teapot.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [.5, 1, 0]);
+				mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [.5, 1, 0]);
 			},
 			function(glob, t){ glob.rotation = ((40 * t) / 1000.0) % 360; });
 		globs.triangle.registerAnimation('rotate',
 			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, GL.degToRad(glob.rotation), [0, 1, 0]);
+				mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [0, 1, 0]);
 			},
 			function(glob, t){ glob.rotation = ((90 * t) / 1000.0) % 360; });
 	}
@@ -140,4 +140,8 @@ var polystream = (function () {
 		getSp: getSp
 	}
 })();
+
+Math.degToRad = function(deg){
+	return deg * Math.PI / 180;
+}
 

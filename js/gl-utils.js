@@ -153,17 +153,12 @@ var GLUtils = (function () {
 		return matrixStack.pop();
 	}
 
-	function degToRad(deg){
-		return deg * Math.PI / 180;
-	}
-
 	return {
 		initGL: initGL,
 		linkShaders: linkShaders,
 		drawGL: drawGL,
 		resize: resize,
 		pushMatrix: pushMatrix,
-		popMatrix: popMatrix,
-		degToRad: degToRad
+		popMatrix: popMatrix
 	}
 });
