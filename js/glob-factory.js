@@ -1,4 +1,6 @@
 var GlobFactory = (function () {
+	var gltfLoader = new GltfFactory();
+
 	function createGlobs(configs){
 		return new Promise(function (resolve, reject){
 			var loadGlobs = [];
@@ -7,7 +9,11 @@ var GlobFactory = (function () {
 				if(configs[i].lazy){
 					loadGlobs.push(getGlobAsync(configs[i]));
 				}else{
-					loadGlobs.push(getGlob(configs[i]));
+					if(configs[i].type === 'gltf'){
+						loadGlobs.push(gltfLoader.load(configs[i]));
+					}else{
+						loadGlobs.push(getGlob(configs[i]));
+					}
 				}
 			}
 			Promise.all(loadGlobs).then(toObj).then(resolve, reject);
@@ -59,7 +65,7 @@ var GlobFactory = (function () {
 				}else{
 					reject(Error('Network error. Status code: ' + http.status));
 				}
-			}
+			};
 			http.onerror = function(){
 				reject(Error('Network error.'));
 			};

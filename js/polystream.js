@@ -56,11 +56,16 @@ var polystream = (function () {
 					drawOptions: { gl: gl, mode: gl.TRIANGLES },
 					lazy: {arrayKey: 'verts', throttle: 200, bufferGrouping: 12 }
 				},
-				teapot: { name: 'teapot',
-					pos: [-40, -20, -80],
-					url: 'glob/teapot.json',
-					drawOptions: {gl: gl, mode: gl.LINE_STRIP },
-					lazy: {arrayKey: 'verts', throttle: 10, bufferGrouping: 3 }
+				// teapot: { name: 'teapot',
+				// 	pos: [-40, -20, -80],
+				// 	url: 'glob/teapot.json',
+				// 	drawOptions: {gl: gl, mode: gl.LINE_STRIP },
+				// 	lazy: {arrayKey: 'verts', throttle: 10, bufferGrouping: 3 }
+				// },
+				box: { name: 'box',
+					type: 'gltf',
+					url: 'glob/box.gltf',
+					drawOptions: {gl: gl, mode: gl.LINE_STRIP }
 				}
 			}).then(function(result){
 				result.globs.grid = grid;
@@ -76,9 +81,9 @@ var polystream = (function () {
 		streams.cube.subscribe(function(value){
 			globs.cube.push('verts', value, gl);
 		});
-		streams.teapot.subscribe(function(vert){
-			globs.teapot.push('verts', vert, gl);
-		});
+		// streams.teapot.subscribe(function(vert){
+		// 	globs.teapot.push('verts', vert, gl);
+		// });
 	}
 
 	function registerAnimations(globs){
@@ -87,11 +92,11 @@ var polystream = (function () {
 				mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [.5, 1, -.4]);
 			},
 			function(glob, t){ glob.rotation = ((30 * t) / 1000.0) % 360; });
-		globs.teapot.registerAnimation('rotate',
-			function(glob, mvMatrix){
-				mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [.5, 1, 0]);
-			},
-			function(glob, t){ glob.rotation = ((40 * t) / 1000.0) % 360; });
+		// globs.teapot.registerAnimation('rotate',
+		// 	function(glob, mvMatrix){
+		// 		mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [.5, 1, 0]);
+		// 	},
+		// 	function(glob, t){ glob.rotation = ((40 * t) / 1000.0) % 360; });
 		globs.triangle.registerAnimation('rotate',
 			function(glob, mvMatrix){
 				mat4.rotate(mvMatrix, Math.degToRad(glob.rotation), [0, 1, 0]);
@@ -100,7 +105,7 @@ var polystream = (function () {
 	}
 
 	function tick(){
-		requestAnimationFrame(tick);
+		// requestAnimationFrame(tick);
 		drawScene();
 		animate();
 	}
